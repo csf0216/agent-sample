@@ -21,10 +21,11 @@ public class SleepingClassFileTransformer implements ClassFileTransformer {
 				ClassPool cp = ClassPool.getDefault();
 				CtClass cc = cp.get("com.creamsugardonut.Sleeping");
 				CtMethod m = cc.getDeclaredMethod("randomSleep");
+
 				m.addLocalVariable("elapsedTime", CtClass.longType);
 				m.insertBefore("elapsedTime = System.currentTimeMillis();");
 				m.insertAfter("{elapsedTime = System.currentTimeMillis() - elapsedTime;"
-						+ "System.out.println(\"Method Executed in ms: \" + elapsedTime);}");
+						+ "System.out.println(\"메서드 실행 시간 in ms: \" + elapsedTime);}");
 				byteCode = cc.toBytecode();
 				cc.detach();
 			} catch (Exception ex) {
