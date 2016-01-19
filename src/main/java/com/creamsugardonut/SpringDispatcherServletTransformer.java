@@ -11,10 +11,7 @@ import java.security.ProtectionDomain;
 /**
  * Created by lks21c on 16. 1. 14.
  */
-public class SleepingClassFileTransformer implements ClassFileTransformer {
-
-    private String httpInfo;
-    private String collectorCode;
+public class SpringDispatcherServletTransformer implements ClassFileTransformer {
 
     public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
                             ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
@@ -31,8 +28,9 @@ public class SleepingClassFileTransformer implements ClassFileTransformer {
                 m.insertAfter(getHttpInfoCode());
 
                 String collectorUrl = System.getProperty("collectorUrl");
+                String collectorProtocol = System.getProperty("collectorProtocol", "http");
                 if (collectorUrl != null) {
-                    m.insertAfter(getCollectorCode(collectorUrl));
+                    m.insertAfter(getCollectorCode(collectorUrl,collectorProtocol));
                 }
 
                 byteCode = cc.toBytecode();
@@ -60,15 +58,17 @@ public class SleepingClassFileTransformer implements ClassFileTransformer {
         return sb.toString();
     }
 
-    public String getCollectorCode(String collectorUrl) {
+    public String getCollectorCode(String collectorUrl, String collectorProtocol) {
         StringBuilder sb = new StringBuilder();
-        sb.append("URL oracle = new URL(\"" + collectorUrl + "\");");
-        sb.append("URLConnection yc = oracle.openConnection();");
-        sb.append("BufferedReader in = new BufferedReader(new InputStreamReader(yc.getInputStream()));");
-        sb.append("String inputLine;");
-        sb.append("while ((inputLine = in.readLine()) != null) {");
-        sb.append("System.out.println(inputLine); }");
-        sb.append("in.close();");
+        if ("http".equals(collectorProtocol)) {
+            sb.append("URL oracle = new URL(\"" + collectorUrl + "\");");
+            sb.append("URLConnection yc = oracle.openConnection();");
+            sb.append("BufferedReader in = new BufferedReader(new InputStreamReader(yc.getInputStream()));");
+            sb.append("String inputLine;");
+            sb.append("while ((inputLine = in.readLine()) != null) {");
+            sb.append("}");
+            sb.append("in.close();");
+        }
         return sb.toString();
     }
 }
