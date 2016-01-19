@@ -1,74 +1,62 @@
 package com.creamsugardonut;
 
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtMethod;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
+
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
 
 /**
  * Created by lks21c on 16. 1. 14.
  */
 public class SpringDispatcherServletTransformer implements ClassFileTransformer {
 
-    public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
-                            ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-        byte[] byteCode = classfileBuffer;
-        if (className.equals("org/springframework/web/servlet/DispatcherServlet")) {
-            try {
-                ClassPool cp = ClassPool.getDefault();
-                cp.importPackage("java.util");
-                cp.importPackage("java.net");
-                cp.importPackage("java.io");
-                CtClass cc = cp.get("org.springframework.web.servlet.DispatcherServlet");
-                CtMethod m = cc.getDeclaredMethod("doService");
+	public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
+			ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+		byte[] byteCode = classfileBuffer;
+		if (className.equals("org/springframework/web/servlet/DispatcherServlet")) {
+			try {
+				ClassPool cp = ClassPool.getDefault();
+				cp.importPackage("java.util");
+				cp.importPackage("java.net");
+				cp.importPackage("java.io");
+				CtClass cc = cp.get("org.springframework.web.servlet.DispatcherServlet");
+				CtMethod m = cc.getDeclaredMethod("doService");
 
-                m.insertAfter(getHttpInfoCode());
+                m.insertAfter(getHttpInfoCode() + AgentToCollectorSender.getCollectorCode());
 
-                String collectorUrl = System.getProperty("collectorUrl");
-                String collectorProtocol = System.getProperty("collectorProtocol", "http");
-                if (collectorUrl != null) {
-                    m.insertAfter(getCollectorCode(collectorUrl,collectorProtocol));
-                }
+				byteCode = cc.toBytecode();
+				cc.detach();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+		return byteCode;
+	}
 
-                byteCode = cc.toBytecode();
-                cc.detach();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-        return byteCode;
-    }
-
-    public String getHttpInfoCode() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("String ip = request.getRemoteAddr();");
-        sb.append("String method = request.getMethod();");
-        sb.append(
-                "String url = \"Agent URI: \" + request.getRequestURL() + \"?\"+ request.getQueryString();");
-        sb.append("Enumeration headerValues = request.getHeaderNames();");
-        sb.append("while (headerValues.hasMoreElements()) {");
-        sb.append("String headerName = (String) headerValues.nextElement();");
-        sb.append(
-                "System.out.println(\"Agent Header: \" + headerName + \" = :\" + request.getHeader(headerName));");
+	public String getHttpInfoCode() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("String ip = request.getRemoteAddr();");
+		sb.append("String method = request.getMethod();");
+		sb.append("String url = request.getRequestURL().toString();");
+		sb.append("String param = request.getQueryString().toString();");
+		sb.append("Enumeration headerValues = request.getHeaderNames();");
+		sb.append("StringBuilder sb = new StringBuilder();");
+		sb.append("sb.append(\"'header' : [\");");
+		sb.append("boolean loopEntered = false;");
+		sb.append("while (headerValues.hasMoreElements()) {");
+        sb.append("if (loopEntered) {");
+        sb.append("sb.append(\",\");");
         sb.append("}");
-        sb.append("int statusCode = response.getStatus();");
-        return sb.toString();
-    }
-
-    public String getCollectorCode(String collectorUrl, String collectorProtocol) {
-        StringBuilder sb = new StringBuilder();
-        if ("http".equals(collectorProtocol)) {
-            sb.append("URL oracle = new URL(\"" + collectorUrl + "\");");
-            sb.append("URLConnection yc = oracle.openConnection();");
-            sb.append("BufferedReader in = new BufferedReader(new InputStreamReader(yc.getInputStream()));");
-            sb.append("String inputLine;");
-            sb.append("while ((inputLine = in.readLine()) != null) {");
-            sb.append("}");
-            sb.append("in.close();");
-        }
-        return sb.toString();
-    }
+		sb.append("String headerName = (String) headerValues.nextElement();");
+        sb.append("sb.append(\"{'\" + headerName + \"': '\" + request.getHeader(headerName) + \"'}\");");
+        sb.append("loopEntered = true;");
+		sb.append("}");
+        sb.append("sb.append(\"]\");");
+		sb.append("int statusCode = response.getStatus();");
+		return sb.toString();
+	}
 }
