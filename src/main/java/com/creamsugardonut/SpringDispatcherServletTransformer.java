@@ -13,7 +13,7 @@ import javassist.*;
  */
 public class SpringDispatcherServletTransformer implements ClassFileTransformer {
 
-    private static final String TAG_NAME = "SpringDispatcherServletTransformer";
+	private static final String TAG_NAME = "SpringDispatcherServletTransformer";
 
 	public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
 			ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
@@ -29,20 +29,20 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 				cp.importPackage("java.net");
 				cp.importPackage("java.io");
 
-                URL url = loader.getResource("");
-                String springWebappPath = url.getPath();
+				URL url = loader.getResource("");
+				String springWebappPath = url.getPath();
 
-                if (springWebappPath.contains("WEB-INF/classes/")) {
-                    springWebappPath = springWebappPath.replace("WEB-INF/classes/", "WEB-INF/lib/*");
-                    System.out.println("TAG_NAME = " + springWebappPath + "added");
-                    cp.insertClassPath(springWebappPath);
-                } else {
-                    if (springWebMvcPath != null) {
-                        cp.insertClassPath(springWebMvcPath);
-                    } else {
-                        throw new IllegalArgumentException("Please add springWebMvcPath as JAVA argument.");
-                    }
-                }
+				if (springWebappPath.contains("WEB-INF/classes/")) {
+					springWebappPath = springWebappPath.replace("WEB-INF/classes/", "WEB-INF/lib/*");
+					System.out.println(TAG_NAME + ": " + springWebappPath + "added");
+					cp.insertClassPath(springWebappPath);
+				} else {
+					if (springWebMvcPath != null) {
+						cp.insertClassPath(springWebMvcPath);
+					} else {
+						throw new IllegalArgumentException("Please add springWebMvcPath as JAVA argument.");
+					}
+				}
 
 				CtClass cc = cp.get("org.springframework.web.servlet.DispatcherServlet");
 				CtMethod m = cc.getDeclaredMethod("doService");
@@ -55,16 +55,16 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 				ex.printStackTrace();
 			}
 		} else if ("javax/servlet/http/HttpServletRequest".equals(className)) {
-            URL url = loader.getResource("");
-            ClassPool cp = ClassPool.getDefault();
-            try {
-                String tomcatLibPath = url.getPath() + "*";
-                System.out.println("TAG_NAME = " + tomcatLibPath + "added");
-                cp.insertClassPath(tomcatLibPath);
-            } catch (NotFoundException e) {
-                e.printStackTrace();
-            }
-        }
+			URL url = loader.getResource("");
+			ClassPool cp = ClassPool.getDefault();
+			try {
+				String tomcatLibPath = url.getPath() + "*";
+				System.out.println(TAG_NAME + ": " + tomcatLibPath + "added");
+				cp.insertClassPath(tomcatLibPath);
+			} catch (NotFoundException e) {
+				e.printStackTrace();
+			}
+		}
 		return byteCode;
 	}
 
