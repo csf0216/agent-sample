@@ -22,6 +22,7 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
         //System.out.println("class name = " + className);
 
 		if (className.equals("org/springframework/web/servlet/DispatcherServlet")) {
+            System.out.println("DispatcherServlet entered");
 			try {
 				ClassPool cp = ClassPool.getDefault();
 				cp.importPackage("java.util");
@@ -64,6 +65,7 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 		sb.append("}");
         sb.append("sb.append(\"]\");");
 		sb.append("int statusCode = response.getStatus();");
+		sb.append("System.out.println(ip);");
 		return sb.toString();
 	}
 }
