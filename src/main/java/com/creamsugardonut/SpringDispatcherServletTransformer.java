@@ -16,7 +16,11 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 
 	public byte[] transform(ClassLoader loader, String className, Class classBeingRedefined,
 			ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-		byte[] byteCode = classfileBuffer;
+        //System.out.println("transformer stated.");
+        byte[] byteCode = classfileBuffer;
+
+        //System.out.println("class name = " + className);
+
 		if (className.equals("org/springframework/web/servlet/DispatcherServlet")) {
 			try {
 				ClassPool cp = ClassPool.getDefault();
@@ -42,7 +46,10 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 		sb.append("String ip = request.getRemoteAddr();");
 		sb.append("String method = request.getMethod();");
 		sb.append("String url = request.getRequestURL().toString();");
-		sb.append("String param = request.getQueryString().toString();");
+		sb.append("String param = \"\";");
+		sb.append("if (request.getQueryString() != null) {");
+		sb.append("param = request.getQueryString().toString();");
+		sb.append("}");
 		sb.append("Enumeration headerValues = request.getHeaderNames();");
 		sb.append("StringBuilder sb = new StringBuilder();");
 		sb.append("sb.append(\"'header' : [\");");
