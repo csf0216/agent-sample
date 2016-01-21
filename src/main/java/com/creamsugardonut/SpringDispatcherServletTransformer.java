@@ -4,7 +4,6 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.net.URL;
 import java.security.ProtectionDomain;
-import java.util.Enumeration;
 
 import javassist.*;
 
@@ -19,35 +18,29 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 			ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 		byte[] byteCode = classfileBuffer;
 
-		String springWebMvcPath = System.getProperty("springWebMvcPath");
+		// System.out.println(className);
 
 		if (className.equals("org/springframework/web/servlet/DispatcherServlet")) {
 			try {
 				ClassPool cp = ClassPool.getDefault();
 
-				cp.importPackage("java.util");
-				cp.importPackage("java.net");
-				cp.importPackage("java.io");
-
-				URL url = loader.getResource("");
-				String springWebappPath = url.getPath();
-
-				if (springWebappPath.contains("WEB-INF/classes/")) {
-					springWebappPath = springWebappPath.replace("WEB-INF/classes/", "WEB-INF/lib/*");
-					System.out.println(TAG_NAME + ": " + springWebappPath + "added");
-					cp.insertClassPath(springWebappPath);
-				} else {
-					if (springWebMvcPath != null) {
-						cp.insertClassPath(springWebMvcPath);
-					} else {
-						throw new IllegalArgumentException("Please add springWebMvcPath as JAVA argument.");
-					}
-				}
+				addDefaultJavaPackages(cp);
+				addSpringDependencyJars(loader, cp);
 
 				CtClass cc = cp.get("org.springframework.web.servlet.DispatcherServlet");
 				CtMethod m = cc.getDeclaredMethod("doService");
-
 				m.insertAfter(getHttpInfoCode() + AgentToCollectorSender.getCollectorCode());
+
+				m = cc.getDeclaredMethod("doDispatch");
+				m.insertAfter("System.out.println(\"doDispatch\");");
+
+				m = cc.getDeclaredMethod("processDispatchResult");
+				m.insertAfter("System.out.println(\"processDispatchResult\");");
+
+				m = cc.getDeclaredMethod("render");
+				StringBuilder sb = new StringBuilder();
+				sb.append("System.out.println(\"dispatchers render\");");
+				m.insertBefore(sb.toString());
 
 				byteCode = cc.toBytecode();
 				cc.detach();
@@ -58,18 +51,84 @@ public class SpringDispatcherServletTransformer implements ClassFileTransformer 
 			URL url = loader.getResource("");
 			ClassPool cp = ClassPool.getDefault();
 			try {
-				String tomcatLibPath = url.getPath() + "*";
-				System.out.println(TAG_NAME + ": " + tomcatLibPath + "added");
+				String tomcatLibPath;
+				if (url.getPath().contains(".jar!/")) {
+					tomcatLibPath = url.getPath().replace("file:", "").replace(".jar!/", ".jar");
+				} else {
+					tomcatLibPath = url.getPath() + "*";
+				}
+				System.out.println(TAG_NAME + ": " + tomcatLibPath + " added");
 				cp.insertClassPath(tomcatLibPath);
 			} catch (NotFoundException e) {
+				e.printStackTrace();
+			}
+		} else if ("org/springframework/web/servlet/view/AbstractView".equals(className)) {
+			try {
+				System.out.println(TAG_NAME + " org/springframework/web/servlet/view/AbstractView");
+				ClassPool cp = ClassPool.getDefault();
+
+				addDefaultJavaPackages(cp);
+				addSpringDependencyJars(loader, cp);
+
+				CtClass cc = cp.get("org.springframework.web.servlet.view.AbstractView");
+				CtMethod m = cc.getDeclaredMethod("render");
+				StringBuilder sb = new StringBuilder();
+
+				sb.append("System.out.println(\"abstract render\");");
+				// sb.append("Set keys = model.keySet();");
+				// sb.append("Iterator iterator = keys.iterator();");
+				// sb.append("while (iterator.hasNext()) {");
+				// sb.append("System.out.println(iterator.next().toString());");
+				// sb.append("}");
+				m.insertBefore(sb.toString());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} else if ("org/springframework/web/servlet/view/json/AbstractJackson2View".equals(className)) {
+			try {
+				System.out.println(TAG_NAME + " org.springframework.web.servlet.view.json.AbstractJackson2View");
+				ClassPool cp = ClassPool.getDefault();
+
+				addDefaultJavaPackages(cp);
+				addSpringDependencyJars(loader, cp);
+
+				CtClass cc = cp.get("org.springframework.web.servlet.view.json.AbstractJackson2View");
+				CtMethod m = cc.getDeclaredMethod("writeContent");
+				StringBuilder sb = new StringBuilder();
+
+				sb.append("System.out.println(\"AbstractJackson2View writeContent\");");
+				// sb.append("Set keys = model.keySet();");
+				// sb.append("Iterator iterator = keys.iterator();");
+				// sb.append("while (iterator.hasNext()) {");
+				// sb.append("System.out.println(iterator.next().toString());");
+				// sb.append("}");
+				m.insertBefore(sb.toString());
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
 		return byteCode;
 	}
 
+	private void addDefaultJavaPackages(ClassPool cp) {
+		cp.importPackage("java.util");
+		cp.importPackage("java.net");
+		cp.importPackage("java.io");
+	}
+
+	private void addSpringDependencyJars(ClassLoader loader, ClassPool cp) throws NotFoundException {
+		URL url = loader.getResource("");
+		String springWebappPath = url.getPath();
+		if (springWebappPath.contains("WEB-INF/classes/")) {
+			springWebappPath = springWebappPath.replace("WEB-INF/classes/", "WEB-INF/lib/*");
+			System.out.println(TAG_NAME + ": " + springWebappPath + "added");
+			cp.insertClassPath(springWebappPath);
+		}
+	}
+
 	public String getHttpInfoCode() {
 		StringBuilder sb = new StringBuilder();
+		sb.append("System.out.println(\"DoService invoked.\");");
 		sb.append("String ip = request.getRemoteAddr();");
 		sb.append("String method = request.getMethod();");
 		sb.append("String url = request.getRequestURL().toString();");
